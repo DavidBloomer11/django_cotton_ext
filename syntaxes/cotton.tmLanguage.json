@@ -1,0 +1,194 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Django Cotton",
+  "scopeName": "text.html.cotton",
+  "patterns": [
+    {
+      "include": "#cotton-components"
+    },
+    {
+      "include": "#cotton-slots"
+    },
+    {
+      "include": "#django-template-tags"
+    },
+    {
+      "include": "#django-variables"
+    },
+    {
+      "include": "text.html.basic"
+    }
+  ],
+  "repository": {
+    "cotton-components": {
+      "patterns": [
+        {
+          "name": "meta.tag.cotton-component",
+          "begin": "(<)(c-)([a-zA-Z][a-zA-Z0-9_-]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.cotton.prefix"
+            },
+            "3": {
+              "name": "entity.name.tag.cotton.component"
+            }
+          },
+          "end": "(/>)|((</)(c-)([a-zA-Z][a-zA-Z0-9_-]*)(>))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.end.html"
+            },
+            "3": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "4": {
+              "name": "entity.name.tag.cotton.prefix"
+            },
+            "5": {
+              "name": "entity.name.tag.cotton.component"
+            },
+            "6": {
+              "name": "punctuation.definition.tag.end.html"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tag-generic-attribute"
+            },
+            {
+              "include": "#string-double-quoted"
+            },
+            {
+              "include": "#string-single-quoted"
+            }
+          ]
+        }
+      ]
+    },
+    "cotton-slots": {
+      "patterns": [
+        {
+          "name": "meta.tag.cotton-slot",
+          "begin": "(<)(c-slot)(?=\\s|>|/>)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "2": {
+              "name": "entity.name.tag.cotton.slot"
+            }
+          },
+          "end": "(/>)|((</)(c-slot)(>))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.end.html"
+            },
+            "3": {
+              "name": "punctuation.definition.tag.begin.html"
+            },
+            "4": {
+              "name": "entity.name.tag.cotton.slot"
+            },
+            "5": {
+              "name": "punctuation.definition.tag.end.html"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#tag-generic-attribute"
+            }
+          ]
+        }
+      ]
+    },
+    "django-template-tags": {
+      "patterns": [
+        {
+          "name": "meta.tag.template.django",
+          "begin": "(\\{%)\\s*",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.tag.tagbraces.django"
+            }
+          },
+          "end": "\\s*(%\\})",
+          "endCaptures": {
+            "1": {
+              "name": "entity.tag.tagbraces.django"
+            }
+          },
+          "patterns": [
+            {
+              "name": "keyword.control.django",
+              "match": "\\b(if|elif|else|endif|for|endfor|block|endblock|extends|include|load|url|static|csrf_token|with|endwith|comment|endcomment|filter|endfilter|now|regroup|spaceless|endspaceless|templatetag|widthratio|cycle|firstof|ifchanged|endifchanged|ifequal|endifequal|ifnotequal|endifnotequal)\\b"
+            },
+            {
+              "name": "string.quoted.single.django",
+              "begin": "'",
+              "end": "'"
+            },
+            {
+              "name": "string.quoted.double.django",
+              "begin": "\"",
+              "end": "\""
+            }
+          ]
+        }
+      ]
+    },
+    "django-variables": {
+      "patterns": [
+        {
+          "name": "meta.tag.template.variable.django",
+          "begin": "(\\{\\{)\\s*",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.tag.tagbraces.django"
+            }
+          },
+          "end": "\\s*(\\}\\})",
+          "endCaptures": {
+            "1": {
+              "name": "entity.tag.tagbraces.django"
+            }
+          },
+          "patterns": [
+            {
+              "name": "variable.parameter.cotton",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*(?=\\s*[|}]|\\s*$)"
+            },
+            {
+              "name": "variable.other.django",
+              "match": "[a-zA-Z_][a-zA-Z0-9_]*"
+            },
+            {
+              "name": "keyword.operator.django",
+              "match": "\\|"
+            }
+          ]
+        }
+      ]
+    },
+    "tag-generic-attribute": {
+      "patterns": [
+        {
+          "name": "entity.other.attribute-name.html",
+          "match": "\\b[a-zA-Z\\-:]+(?=\\s*=)"
+        }
+      ]
+    },
+    "string-double-quoted": {
+      "name": "string.quoted.double.html",
+      "begin": "\"",
+      "end": "\""
+    },
+    "string-single-quoted": {
+      "name": "string.quoted.single.html",
+      "begin": "'",
+      "end": "'"
+    }
+  }
+}

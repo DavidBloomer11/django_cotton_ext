@@ -1,0 +1,22 @@
+{% comment %}
+Button Component
+
+A reusable button component with customizable styling.
+
+Parameters:
+- type: Button type (button, submit, reset) - default: button
+- variant: Style variant (primary, secondary, danger) - default: primary
+- size: Button size (sm, md, lg) - default: md
+- disabled: Whether button is disabled - default: false
+
+Slots:
+- default: Button content/text
+{% endcomment %}
+
+<button 
+    type="{{ type|default:'button' }}" 
+    class="btn btn-{{ variant|default:'primary' }} btn-{{ size|default:'md' }}{% if disabled %} disabled{% endif %}"
+    {% if disabled %}disabled{% endif %}
+>
+    <c-slot />
+</button>

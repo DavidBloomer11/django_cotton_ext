@@ -1,0 +1,106 @@
+{
+  "name": "django-cotton-highlighting",
+  "displayName": "Django Cotton",
+  "description": "VS Code extension for Django Cotton - component-based template system for Django",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cotton",
+        "aliases": ["Django Cotton", "cotton"],
+        "extensions": [".cotton.html", ".cotton"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cotton",
+        "scopeName": "text.html.cotton",
+        "path": "./syntaxes/cotton.tmLanguage.json",
+        "embeddedLanguages": {
+          "text.html": "html",
+          "source.css": "css",
+          "source.js": "javascript"
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[cotton]": {
+        "editor.suggest.insertMode": "replace",
+        "editor.quickSuggestions": {
+          "other": true,
+          "comments": false,
+          "strings": true
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "django-cotton-highlighting.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "django-cotton-highlighting.refreshComponents",
+        "title": "Django Cotton: Refresh Components"
+      }
+    ],
+    "configuration": {
+      "title": "Django Cotton",
+      "properties": {
+        "djangoCotton.templatesPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Django Cotton templates directory (relative to workspace root)",
+          "scope": "workspace"
+        },
+        "djangoCotton.enableAutocompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable autocompletion for Cotton components",
+          "scope": "window"
+        },
+        "djangoCotton.highlightVariables": {
+          "type": "boolean", 
+          "default": true,
+          "description": "Highlight template variables as function parameters",
+          "scope": "window"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.105.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "eslint": "^9.36.0",
+    "esbuild": "^0.25.10",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}

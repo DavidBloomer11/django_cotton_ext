@@ -1,0 +1,31 @@
+{% comment %}
+Card Component
+
+A flexible card container component.
+
+Parameters:
+- title: Card title text (optional)
+- subtitle: Card subtitle text (optional)
+- class: Additional CSS classes (optional)
+
+Slots:
+- default: Main card content
+- footer: Card footer content (optional)
+{% endcomment %}
+
+<div class="card {{ class }}">
+    {% if title %}
+    <div class="card-header">
+        <h3 class="card-title">{{ title }}</h3>
+        {% if subtitle %}
+        <p class="card-subtitle">{{ subtitle }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    <div class="card-body">
+        <c-slot />
+    </div>
+    
+    <c-slot name="footer" />
+</div>
