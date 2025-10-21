@@ -46,10 +46,22 @@ class CottonComponentProvider {
 		const pattern = new vscode.RelativePattern(templatesPath, '**/*.{html,cotton.html,cotton}');
 		this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
 		
-		this.watcher.onDidCreate(() => this.refreshComponents());
-		this.watcher.onDidChange(() => this.refreshComponents());
-		this.watcher.onDidDelete(() => this.refreshComponents());
+		this.watcher.onDidCreate(() => {
+			this.refreshComponents();
+			this.onComponentsChanged?.();
+		});
+		this.watcher.onDidChange(() => {
+			this.refreshComponents();
+			this.onComponentsChanged?.();
+		});
+		this.watcher.onDidDelete(() => {
+			this.refreshComponents();
+			this.onComponentsChanged?.();
+		});
 	}
+
+	// Event handler for component changes
+	public onComponentsChanged?: () => void;
 
 	public async refreshComponents() {
 		this.components.clear();
@@ -90,22 +102,33 @@ class CottonComponentProvider {
 			}
 			
 			// Calculate component name with folder structure
+			// Django Cotton: snake_case filenames -> kebab-case component names
 			const relativePath = path.relative(templatesPath, filePath);
-			const componentName = relativePath
+			let componentName = relativePath
 				.replace(/\.(html|cotton\.html|cotton)$/, '')
 				.replace(/[/\\]/g, '.'); // Convert folder separators to dots
+			
+			// Convert snake_case to kebab-case for component names
+			// e.g., my_component.html -> my-component, ui/button_large.html -> ui.button-large
+			componentName = componentName.replace(/_/g, '-');
 			
 			// Parse docstring from comment block
 			const docstringMatch = content.match(/\{\%\s*comment\s*\%\}([\s\S]*?)\{\%\s*endcomment\s*\%\}/);
 			const docstring = docstringMatch ? docstringMatch[1].trim() : undefined;
 			
-			// Extract variables from template
+			// Extract variables from template (exclude Django Cotton special variables)
 			const variableMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|[^}]*)?\}\}/g);
-			const variables = Array.from(variableMatches).map(match => match[1]);
+			const allVariables = Array.from(variableMatches).map(match => match[1]);
+			
+			// Filter out Django Cotton special variables and common Django variables
+			const excludedVariables = new Set(['slot', 'attrs', 'forloop', 'block', 'csrf_token']);
+			const variables = allVariables.filter(variable => !excludedVariables.has(variable));
 			const uniqueVariables = [...new Set(variables)];
 			
-			// Check if component has slots (c-slot tags)
-			const hasSlots = content.includes('<c-slot') || content.includes('c-slot');
+			// Check if component has slots
+			const hasDefaultSlot = content.includes('{{ slot }}');
+			const hasNamedSlots = content.includes('<c-slot');
+			const hasSlots = hasDefaultSlot || hasNamedSlots;
 			
 			this.components.set(componentName, {
 				name: componentName,
@@ -215,6 +238,70 @@ export function activate(context: vscode.ExtensionContext) {
 		'<', 'c' // trigger characters
 	);
 
+	// Register attribute completion provider for Cotton components
+	const cottonAttributeCompletionProvider = vscode.languages.registerCompletionItemProvider(
+		{ scheme: 'file', pattern: '**/*.{html,htm,cotton,cotton.html}' },
+		{
+			provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
+				const config = vscode.workspace.getConfiguration('djangoCotton');
+				if (!config.get<boolean>('enableAutocompletion', true)) {
+					return [];
+				}
+
+				const lineText = document.lineAt(position).text;
+				const beforeCursor = lineText.substring(0, position.character);
+				
+				// Check if we're inside a Cotton component tag
+				const cottonTagMatch = beforeCursor.match(/<c-([a-zA-Z][a-zA-Z0-9_.-]*)[^>]*$/);
+				if (!cottonTagMatch) {
+					return [];
+				}
+
+				const componentName = cottonTagMatch[1];
+				const component = componentProvider.getComponent(componentName);
+				
+				if (!component || component.variables.length === 0) {
+					return [];
+				}
+
+				// Extract already used attributes (both = and : syntax)
+				const tagContent = cottonTagMatch[0];
+				const usedAttributes = new Set<string>();
+				const attributeMatches = tagContent.matchAll(/(\w+)[=:]/g);
+				for (const match of attributeMatches) {
+					usedAttributes.add(match[1]);
+				}
+
+				// Check if we're typing after a colon (Django Cotton feature)
+				const isColonContext = beforeCursor.endsWith(':');
+
+				const completionItems: vscode.CompletionItem[] = [];
+				
+				// Add completions for component variables that haven't been used yet
+				component.variables.forEach(variable => {
+					if (!usedAttributes.has(variable)) {
+						const item = new vscode.CompletionItem(variable, vscode.CompletionItemKind.Property);
+						
+						if (isColonContext) {
+							// For colon syntax, just insert the variable name
+							item.insertText = new vscode.SnippetString(`${variable}="$1"`);
+						} else {
+							// For regular syntax, insert variable="value"
+							item.insertText = new vscode.SnippetString(`${variable}="$1"`);
+						}
+						
+						item.documentation = new vscode.MarkdownString(`**Component Variable**\n\nAttribute for component: \`c-${component.name}\`\n\nSupports both \`${variable}="value"\` and \`:${variable}="value"\` syntax.`);
+						item.detail = `Cotton component attribute`;
+						completionItems.push(item);
+					}
+				});
+
+				return completionItems;
+			}
+		},
+		' ', '=', ':' // trigger on space, equals, and colon
+	);
+
 	// Register hover provider for Cotton components
 	const cottonHoverProvider = vscode.languages.registerHoverProvider(
 		{ scheme: 'file', pattern: '**/*.{html,htm,cotton,cotton.html}' },
@@ -262,15 +349,18 @@ export function activate(context: vscode.ExtensionContext) {
 		const diagnostics: vscode.Diagnostic[] = [];
 		const text = document.getText();
 		
-		// Find all Cotton component references
+		// Find all Cotton component references with their full tag content
+		// Updated to match Django Cotton naming: kebab-case with dots for folders
 		const componentRegex = /<c-([a-zA-Z][a-zA-Z0-9_.-]*)[^>]*>/g;
 		let match;
 		
 		while ((match = componentRegex.exec(text)) !== null) {
 			const componentName = match[1];
+			const fullTag = match[0];
 			const component = componentProvider.getComponent(componentName);
 			
 			if (!component) {
+				// Unknown component - red error
 				const startPos = document.positionAt(match.index + 3); // Position after '<c-'
 				const endPos = document.positionAt(match.index + 3 + componentName.length);
 				const range = new vscode.Range(startPos, endPos);
@@ -283,6 +373,31 @@ export function activate(context: vscode.ExtensionContext) {
 				diagnostic.code = 'cotton-unknown-component';
 				diagnostic.source = 'Django Cotton';
 				diagnostics.push(diagnostic);
+			} else {
+				// Known component - check for unknown attributes (both = and : syntax)
+				const attributeMatches = Array.from(fullTag.matchAll(/(\w+)[=:]/g));
+				const validAttributes = new Set(component.variables);
+				
+				// Check each attribute to see if it's valid
+				for (const attributeMatch of attributeMatches) {
+					const attributeName = attributeMatch[1];
+					if (!validAttributes.has(attributeName)) {
+						// Find the position of this specific attribute
+						const attributeIndex = match.index + fullTag.indexOf(attributeName, fullTag.indexOf('=') > -1 ? 0 : fullTag.indexOf(attributeName));
+						const startPos = document.positionAt(attributeIndex);
+						const endPos = document.positionAt(attributeIndex + attributeName.length);
+						const range = new vscode.Range(startPos, endPos);
+						
+						const diagnostic = new vscode.Diagnostic(
+							range,
+							`Unknown attribute '${attributeName}' for component '${componentName}'. Valid attributes: ${component.variables.join(', ')}`,
+							vscode.DiagnosticSeverity.Warning
+						);
+						diagnostic.code = 'cotton-unknown-attribute';
+						diagnostic.source = 'Django Cotton';
+						diagnostics.push(diagnostic);
+					}
+				}
 			}
 		}
 		
@@ -304,6 +419,17 @@ export function activate(context: vscode.ExtensionContext) {
 			validateCottonComponents(document);
 		}
 	});
+
+	// Connect automatic refresh to diagnostics
+	componentProvider.onComponentsChanged = () => {
+		// Re-validate all open documents after components refresh
+		vscode.workspace.textDocuments.forEach(document => {
+			if (document.languageId === 'html' || document.languageId === 'cotton' || 
+				document.fileName.endsWith('.html') || document.fileName.endsWith('.cotton.html')) {
+				validateCottonComponents(document);
+			}
+		});
+	};
 
 	// Validate all currently open documents when components are refreshed
 	const originalRefreshComponents = componentProvider.refreshComponents.bind(componentProvider);
@@ -332,6 +458,91 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Cotton components refreshed!');
 	});
 
+	// Command to create docstring
+	const createDocstringCommand = vscode.commands.registerCommand('django-cotton-highlighting.createDocstring', async () => {
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showErrorMessage('No active editor found');
+			return;
+		}
+
+		const document = editor.document;
+		if (!document.fileName.endsWith('.html') && !document.fileName.endsWith('.cotton.html') && !document.fileName.endsWith('.cotton')) {
+			vscode.window.showErrorMessage('This command is only available for Cotton template files');
+			return;
+		}
+
+		// Parse the current file to extract variables
+		const content = document.getText();
+		const variableMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|[^}]*)?\}\}/g);
+		const variables = Array.from(variableMatches).map(match => match[1]);
+		const uniqueVariables = [...new Set(variables)];
+
+		// Check if component has slots and what type
+		const hasDefaultSlot = content.includes('{{ slot }}');
+		const namedSlotMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g);
+		const namedSlots: string[] = [];
+		
+		// Find named slots by looking for variables that are used in {% if %} blocks (common pattern for optional slots)
+		const conditionalSlotMatches = content.matchAll(/\{\%\s*if\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\%\}[\s\S]*?\{\{\s*\1\s*\}\}/g);
+		const conditionalSlots = Array.from(conditionalSlotMatches).map(match => match[1]);
+		
+		// Also look for explicit c-slot references with name attributes
+		const explicitSlotMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g);
+		for (const match of explicitSlotMatches) {
+			const variable = match[1];
+			// If it's used in a conditional pattern, it's likely a named slot
+			if (conditionalSlots.includes(variable) && variable !== 'slot') {
+				namedSlots.push(variable);
+			}
+		}
+		
+		// Remove duplicates and standard variables
+		const uniqueNamedSlots = [...new Set(namedSlots)].filter(slot => 
+			!uniqueVariables.includes(slot) && slot !== 'slot' && slot !== 'attrs'
+		);
+
+		// Get the filename for the docstring
+		const fileName = path.basename(document.fileName, path.extname(document.fileName));
+
+		// Generate the docstring template using VS Code snippet syntax
+		let snippetString = '{% comment %}\n';
+		snippetString += `${fileName}\n\n`;
+		
+		let tabIndex = 1;
+		snippetString += `\$${tabIndex++}\n\n`; // Description placeholder
+		
+		if (uniqueVariables.length > 0) {
+			snippetString += 'Parameters:\n';
+			uniqueVariables.forEach(variable => {
+				snippetString += `- ${variable} (\$${tabIndex++}): \$${tabIndex++}\n`;
+			});
+			snippetString += '\n';
+		}
+
+		if (hasDefaultSlot || uniqueNamedSlots.length > 0) {
+			snippetString += 'Slots:\n';
+			
+			if (hasDefaultSlot) {
+				snippetString += `- default: \$${tabIndex++}\n`;
+			}
+			
+			uniqueNamedSlots.forEach(slotName => {
+				snippetString += `- ${slotName}: \$${tabIndex++}\n`;
+			});
+		}
+
+		snippetString += '{% endcomment %}\n\n';
+
+		// Insert the docstring as a snippet at the beginning of the file
+		const firstLine = document.lineAt(0);
+		const snippet = new vscode.SnippetString(snippetString);
+		
+		await editor.insertSnippet(snippet, firstLine.range.start);
+
+		vscode.window.showInformationMessage('Docstring template created! Use Tab to navigate between placeholders.');
+	});
+
 	// The hello world command
 	const disposable = vscode.commands.registerCommand('django-cotton-highlighting.helloWorld', () => {
 		vscode.window.showInformationMessage('Hello World from Django Cotton!');
@@ -347,7 +558,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		disposable,
 		refreshCommand,
+		createDocstringCommand,
 		cottonCompletionProvider,
+		cottonAttributeCompletionProvider,
 		cottonHoverProvider,
 		componentProvider,
 		configWatcher,

@@ -1,0 +1,36 @@
+{% comment %}
+modal
+
+<description>
+
+Parameters:
+- class (<type>): <description>
+- size (<type>): <description>
+- title (<type>): <description>
+
+Slots:
+- default: <description>
+- footer: <description>
+{% endcomment %}
+
+
+<div class="modal {{ class }}" tabindex="-1">
+    <div class="modal-dialog modal-{{ size }}">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">{{ title }}</h5>
+                {% if closable %}
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                {% endif %}
+            </div>
+            <div class="modal-body">
+                <c-slot />
+            </div>
+            {% if footer %}
+            <div class="modal-footer">
+                <c-slot name="footer" />
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>

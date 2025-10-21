@@ -1,19 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Django Cotton Diagnostic Testing</title>
+    <title>Django Cotton Enhanced Features Testing</title>
 </head>
 <body>
-    <!-- These should work and have hover documentation -->
-    <c-card title="Working Card">
+    <!-- These should work perfectly - all variables provided -->
+    <c-card title="Working Card" subtitle="With subtitle" class="my-card">
         Content goes here
     </c-card>
 
-    <c-ui.button type="submit" variant="primary" >
+    <c-input />
+
+    <c-ui.button type="submit" variant="primary" size="lg" disabled="false">
         Submit Form
     </c-ui.button>
 
-    <!-- These should show red underlines (unknown components) -->
+    <!-- These should show YELLOW warnings (missing required variables) -->
+    <c-card>
+        <!-- Missing: title, subtitle, class -->
+        Missing title and other variables
+    </c-card>
+
+    <c-ui.button bloop="">
+        <!-- Missing: type, variant, size, disabled -->
+        Button with missing attributes
+    </c-ui.button>
+
+    <c-ui.button variant="secondary" size="sm" type="big">
+        <!-- Missing: type, size, disabled -->
+        Partially configured button
+    </c-ui.button>
+
+
+    <!-- These should show RED underlines (unknown components) -->
     <c-nonexistent-component />
     
     <c-another.missing.component>
@@ -22,9 +41,14 @@
 
     <c-ui.missing-button />
 
-    <!-- This should work -->
-    <c-ui.button disabled="true">
-        Disabled Button
-    </c-ui.button>
+    <!-- Test attribute autocomplete: Type <c-ui.button and then space -->
+    <!-- You should get autocomplete for: type, variant, size, disabled -->
+    <c-ui.button 
+        
+    <!-- Test mixed scenarios -->
+    <c-card title="Partial Card">
+        <!-- Should warn about missing: subtitle, class -->
+        Has title but missing others
+    </c-card>
 </body>
 </html>

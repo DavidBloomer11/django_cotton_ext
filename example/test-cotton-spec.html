@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Django Cotton Specification Testing</title>
+</head>
+<body>
+    <!-- Test 1: Valid components with proper kebab-case naming -->
+    <c-card-component title="Test Card" subtitle="Subtitle" class="my-class">
+        <p>Default slot content</p>
+        <c-slot name="footer">
+            <button>Footer button</button>
+        </c-slot>
+    </c-card-component>
+
+    <!-- Test 2: Nested component (ui folder) -->
+    <c-ui.button-component type="submit" variant="primary" size="lg" disabled="false">
+        Submit Button
+    </c-ui.button-component>
+
+    <!-- Test 3: Colon syntax for dynamic attributes -->
+    <c-ui.button-component :type="button_type" :variant="theme_variant">
+        Dynamic Button
+    </c-ui.button-component>
+
+    <!-- Test 4: Boolean attributes (Django Cotton feature) -->
+    <c-ui.button-component type="button" variant="primary" disabled>
+        Disabled Button (boolean attribute)
+    </c-ui.button-component>
+
+    <!-- Test 5: Template expressions in attributes -->
+    <c-card-component title="Hello {{ user.name }}" class="card-{{ theme }}">
+        Template expression attributes
+    </c-card-component>
+
+    <!-- Test 6: Invalid attributes (should show yellow underlines) -->
+    <c-ui.button-component type="submit" invalid-attr="bad" another-bad="worse">
+        Button with invalid attributes
+    </c-ui.button-component>
+
+    <!-- Test 7: Unknown components (should show red underlines) -->
+    <c-nonexistent-component />
+    <c-ui.missing-button />
+
+    <!-- Test 8: Multi-line component (Django Cotton supports this) -->
+    <c-card-component 
+        title="Multi-line"
+        subtitle="Component definition"
+        class="test-class"
+        :data="complex_data">
+        Multi-line content
+    </c-card-component>
+
+    <!-- Test 9: Component with {{ attrs }} usage -->
+    <c-modal title="Test Modal" class="large" :closable="true" :footer="true">
+        <p>Modal content in default slot</p>
+        <c-slot name="footer">
+            <button>Close</button>
+            <button>Save</button>
+        </c-slot>
+    </c-modal>
+
+    <!-- Test 10: Test autocomplete - type these and check autocomplete works -->
+    <!-- <c-card-component  (should autocomplete title, subtitle, class) -->
+    <!-- <c-ui.button-component  (should autocomplete type, variant, size, disabled) -->
+    <!-- <c-modal  (should autocomplete title, class, size, closable, footer) -->
+</body>
+</html>

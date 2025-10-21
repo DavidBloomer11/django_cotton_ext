@@ -50,6 +50,10 @@
       {
         "command": "django-cotton-highlighting.refreshComponents",
         "title": "Django Cotton: Refresh Components"
+      },
+      {
+        "command": "django-cotton-highlighting.createDocstring",
+        "title": "Django Cotton: Create Docstring"
       }
     ],
     "configuration": {

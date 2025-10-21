@@ -1,0 +1,24 @@
+<!-- Test file for new Cotton features -->
+
+<!-- 1. Test unknown attribute warnings (should be yellow underlined) -->
+<c-ui.button type="submit" variant="primary" bloop="invalid" wrongattr="bad">
+    Button with unknown attributes
+</c-ui.button>
+
+<!-- 2. Test colon syntax autocomplete (type : after c-ui.button) -->
+<c-ui.button :type="submit" :variant="danger">
+    Button with colon syntax
+</c-ui.button>
+
+<!-- 3. Test mixed syntax -->
+<c-card title="Test" :subtitle="dynamic" invalidprop="should warn">
+    Card with mixed syntax and invalid attribute
+</c-card>
+
+<!-- 4. Test normal valid usage (no warnings) -->
+<c-ui.button type="button" variant="secondary" size="md" disabled="false">
+    Valid button
+</c-ui.button>
+
+<!-- 5. Test component to use "Create Docstring" command on -->
+<!-- Open a new .html file and run "Django Cotton: Create Docstring" -->
