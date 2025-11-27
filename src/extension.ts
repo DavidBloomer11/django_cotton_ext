@@ -102,27 +102,90 @@ class CottonComponentProvider {
 			}
 			
 			// Calculate component name with folder structure
-			// Django Cotton: snake_case filenames -> kebab-case component names
 			const relativePath = path.relative(templatesPath, filePath);
-			let componentName = relativePath
+			let baseName = relativePath
 				.replace(/\.(html|cotton\.html|cotton)$/, '')
 				.replace(/[/\\]/g, '.'); // Convert folder separators to dots
 			
-			// Convert snake_case to kebab-case for component names
-			// e.g., my_component.html -> my-component, ui/button_large.html -> ui.button-large
-			componentName = componentName.replace(/_/g, '-');
+			// Register component with original name (snake_case preserved)
+			const snakeCaseName = baseName;
+			
+			// Also create kebab-case variant for lookup
+			const kebabCaseName = baseName.replace(/_/g, '-');
 			
 			// Parse docstring from comment block
 			const docstringMatch = content.match(/\{\%\s*comment\s*\%\}([\s\S]*?)\{\%\s*endcomment\s*\%\}/);
 			const docstring = docstringMatch ? docstringMatch[1].trim() : undefined;
 			
-			// Extract variables from template (exclude Django Cotton special variables)
-			const variableMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\|[^}]*)?\}\}/g);
-			const allVariables = Array.from(variableMatches).map(match => match[1]);
+			// Extract variables from template
+			const allVariables: string[] = [];
 			
-			// Filter out Django Cotton special variables and common Django variables
-			const excludedVariables = new Set(['slot', 'attrs', 'forloop', 'block', 'csrf_token']);
-			const variables = allVariables.filter(variable => !excludedVariables.has(variable));
+			// 1. Variables in {{ variable }} or {{ variable.property }} or {{ variable|filter }}
+			const doublebraceMatches = content.matchAll(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*\s*(?:\|[^}]*)?\}\}/g);
+			for (const match of doublebraceMatches) {
+				allVariables.push(match[1]);
+			}
+			
+			// 2. Variables in {% for item in collection %} - extract 'collection'
+			const forLoopMatches = content.matchAll(/\{\%\s*for\s+\w+\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*\s*\%\}/g);
+			for (const match of forLoopMatches) {
+				allVariables.push(match[1]);
+			}
+			
+			// 3. Variables in {% if variable %} or {% if variable.property %} or {% elif variable %}
+			const ifMatches = content.matchAll(/\{\%\s*(?:if|elif)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*(?:\s|\%)/g);
+			for (const match of ifMatches) {
+				allVariables.push(match[1]);
+			}
+			
+			// 4. Variables in {% with var=value %} - extract variables on right side
+			const withMatches = content.matchAll(/\{\%\s*with\s+(?:\w+=)?([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*/g);
+			for (const match of withMatches) {
+				allVariables.push(match[1]);
+			}
+			
+			// 5. Variables passed to custom template tags (common pattern: {% tag var1 var2 %})
+			// Look for words after known tag names that look like variables
+			const customTagMatches = content.matchAll(/\{\%\s*(?:render_\w+|include|url)\s+[^%]*?([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*(?=\s|\%)/g);
+			for (const match of customTagMatches) {
+				// Skip quoted strings and tag names
+				if (!match[1].startsWith('"') && !match[1].startsWith("'")) {
+					allVariables.push(match[1]);
+				}
+			}
+			
+			// 6. Any variable-like tokens in template tags that follow common patterns
+			// This catches things like {% sometag object field request.user %}
+			const genericTagMatches = content.matchAll(/\{\%[^%]+\%\}/g);
+			for (const tagMatch of genericTagMatches) {
+				const tagContent = tagMatch[0];
+				// Skip comment blocks, for/endfor, if/endif, etc.
+				if (/\{\%\s*(end|comment|load|extends|block)/.test(tagContent)) {
+					continue;
+				}
+				// Find potential variables (not in quotes, not keywords)
+				const potentialVars = tagContent.matchAll(/(?<=[\s,=])([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z0-9_]+)*(?=[\s%,])/g);
+				for (const varMatch of potentialVars) {
+					allVariables.push(varMatch[1]);
+				}
+			}
+			
+			// Filter out Django Cotton special variables, loop variables, and common Django variables
+			const excludedVariables = new Set([
+				'slot', 'attrs', 'forloop', 'block', 'csrf_token',
+				'True', 'False', 'None', 'and', 'or', 'not', 'in', 'is',
+				'if', 'else', 'elif', 'endif', 'for', 'endfor', 'empty',
+				'with', 'endwith', 'include', 'extends', 'block', 'endblock',
+				'load', 'static', 'url', 'csrf_token', 'comment', 'endcomment',
+				'as', 'by', 'from', 'import', 'cycle', 'firstof', 'now',
+				'regroup', 'spaceless', 'templatetag', 'widthratio',
+				'item', 'object', 'key', 'value' // Common loop variable names to exclude
+			]);
+			const variables = allVariables.filter(variable => 
+				!excludedVariables.has(variable) && 
+				variable.length > 1 && // Skip single-char variables
+				!/^[A-Z_]+$/.test(variable) // Skip constants
+			);
 			const uniqueVariables = [...new Set(variables)];
 			
 			// Check if component has slots
@@ -130,24 +193,76 @@ class CottonComponentProvider {
 			const hasNamedSlots = content.includes('<c-slot');
 			const hasSlots = hasDefaultSlot || hasNamedSlots;
 			
-			this.components.set(componentName, {
-				name: componentName,
+			const componentData: CottonComponent = {
+				name: snakeCaseName, // Use snake_case as the canonical name
 				filePath,
 				docstring,
 				variables: uniqueVariables,
 				hasSlots
-			});
+			};
+			
+			// Register under snake_case name
+			this.components.set(snakeCaseName, componentData);
+			
+			// Also register under kebab-case name if different
+			if (kebabCaseName !== snakeCaseName) {
+				this.components.set(kebabCaseName, {
+					...componentData,
+					name: kebabCaseName // Use kebab-case name for this entry
+				});
+			}
 		} catch (error) {
 			console.error(`Error parsing component ${filePath}:`, error);
 		}
 	}
 
 	getComponents(): CottonComponent[] {
-		return Array.from(this.components.values());
+		// Return unique components (by file path) to avoid duplicates in autocomplete
+		const seen = new Set<string>();
+		const components: CottonComponent[] = [];
+		
+		for (const component of this.components.values()) {
+			if (!seen.has(component.filePath)) {
+				seen.add(component.filePath);
+				components.push(component);
+			}
+		}
+		
+		return components;
 	}
 
 	getComponent(name: string): CottonComponent | undefined {
-		return this.components.get(name);
+		// Try exact match first
+		let component = this.components.get(name);
+		if (component) {
+			return component;
+		}
+		
+		// Normalize the name: convert all underscores to hyphens and try
+		const kebabName = name.replace(/_/g, '-');
+		component = this.components.get(kebabName);
+		if (component) {
+			return component;
+		}
+		
+		// Try converting all hyphens to underscores
+		const snakeName = name.replace(/-/g, '_');
+		component = this.components.get(snakeName);
+		if (component) {
+			return component;
+		}
+		
+		// Try mixed: the user might use data_view but file is data-view or vice versa
+		// Split by dots (folder separator) and try all combinations
+		for (const [key, comp] of this.components) {
+			const normalizedKey = key.replace(/[-_]/g, '');
+			const normalizedName = name.replace(/[-_]/g, '');
+			if (normalizedKey === normalizedName) {
+				return comp;
+			}
+		}
+		
+		return undefined;
 	}
 
 	dispose() {
@@ -183,13 +298,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 				const completionItems: vscode.CompletionItem[] = [];
 				const components = componentProvider.getComponents();
+				const namingStyle = config.get<string>('componentNamingStyle', 'snake_case');
 				
 				// Add completions for discovered components
 				components.forEach(component => {
-					const item = new vscode.CompletionItem(`c-${component.name}`, vscode.CompletionItemKind.Class);
+					// Format component name based on naming style preference
+					const displayName = namingStyle === 'kebab-case' 
+						? component.name.replace(/_/g, '-')
+						: component.name; // snake_case is the default/original
+					
+					const item = new vscode.CompletionItem(`c-${displayName}`, vscode.CompletionItemKind.Class);
 					
 					// Build snippet with component attributes based on variables
-					let snippet = `c-${component.name}`;
+					let snippet = `c-${displayName}`;
 					
 					// Add attributes for variables
 					if (component.variables.length > 0) {
@@ -203,7 +324,7 @@ export function activate(context: vscode.ExtensionContext) {
 					if (component.hasSlots) {
 						// Has slots - use opening/closing tags
 						const nextTabStop = component.variables.length + 1;
-						snippet += `>\$${nextTabStop}</c-${component.name}>`;
+						snippet += `>\$${nextTabStop}</c-${displayName}>`;
 					} else {
 						// No slots - use self-closing tag
 						snippet += ` />`;
@@ -212,7 +333,7 @@ export function activate(context: vscode.ExtensionContext) {
 					item.insertText = new vscode.SnippetString(snippet);
 					
 					// Add documentation
-					let documentation = `**Cotton Component: ${component.name}**\n\n`;
+					let documentation = `**Cotton Component: ${displayName}**\n\n`;
 					if (component.docstring) {
 						documentation += `${component.docstring}\n\n`;
 					}
@@ -337,6 +458,36 @@ export function activate(context: vscode.ExtensionContext) {
 					'**Cotton Component**',
 					'Django Cotton component-based template system allows you to create reusable components.'
 				]);
+			}
+		}
+	);
+
+	// Register definition provider for Go to Definition (Cmd+Click)
+	const cottonDefinitionProvider = vscode.languages.registerDefinitionProvider(
+		{ scheme: 'file', pattern: '**/*.{html,htm,cotton,cotton.html}' },
+		{
+			provideDefinition(document, position, token) {
+				// Match Cotton component tags: <c-component-name or </c-component-name
+				const range = document.getWordRangeAtPosition(position, /c-[a-zA-Z][a-zA-Z0-9_.-]*/);
+				if (!range) {
+					return null;
+				}
+				
+				const word = document.getText(range);
+				if (!word.startsWith('c-')) {
+					return null;
+				}
+				
+				const componentName = word.substring(2); // Remove 'c-' prefix
+				const component = componentProvider.getComponent(componentName);
+				
+				if (component && component.filePath) {
+					const uri = vscode.Uri.file(component.filePath);
+					// Return location at the start of the file
+					return new vscode.Location(uri, new vscode.Position(0, 0));
+				}
+				
+				return null;
 			}
 		}
 	);
@@ -562,6 +713,7 @@ export function activate(context: vscode.ExtensionContext) {
 		cottonCompletionProvider,
 		cottonAttributeCompletionProvider,
 		cottonHoverProvider,
+		cottonDefinitionProvider,
 		componentProvider,
 		configWatcher,
 		diagnosticCollection,

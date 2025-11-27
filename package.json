@@ -2,7 +2,12 @@
   "name": "django-cotton-highlighting",
   "displayName": "Django Cotton",
   "description": "VS Code extension for Django Cotton - component-based template system for Django",
-  "version": "0.0.1",
+  "version": "0.0.4",
+  "publisher": "davidbloomer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/davidbloomer/django-cotton-ext"
+  },
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -75,6 +80,13 @@
           "type": "boolean", 
           "default": true,
           "description": "Highlight template variables as function parameters",
+          "scope": "window"
+        },
+        "djangoCotton.componentNamingStyle": {
+          "type": "string",
+          "enum": ["snake_case", "kebab-case"],
+          "default": "snake_case",
+          "description": "Naming style for component autocomplete (snake_case: my_component, kebab-case: my-component). Both styles are always recognized.",
           "scope": "window"
         }
       }
