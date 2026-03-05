@@ -7,6 +7,8 @@ A VS Code extension that provides comprehensive support for [Django Cotton](http
 - **Syntax Highlighting**: Custom syntax highlighting for Cotton templates (.cotton.html files)
 - **Component Autocomplete**: Intelligent autocomplete for Cotton components based on your template files
 - **Documentation on Hover**: Shows component documentation from `{% comment %}` blocks when hovering over components
+- **Go to Definition**: Cmd/Ctrl+Click on a component tag to open the component file
+- **Diagnostics**: Unknown components and unknown attributes are flagged in the editor
 - **Template Variable Highlighting**: Highlights Django template variables `{{ }}` as function parameters
 - **Configurable Template Path**: Set your Cotton templates directory for component discovery
 
@@ -77,6 +79,28 @@ This extension contributes the following settings:
 - \`djangoCotton.templatesPath\`: Path to your Cotton templates directory (relative to workspace root)
 - \`djangoCotton.enableAutocompletion\`: Enable/disable autocompletion for Cotton components
 - \`djangoCotton.highlightVariables\`: Enable/disable template variable highlighting
+- \`djangoCotton.componentNamingStyle\`: Component naming style for autocomplete (`snake_case` or `kebab-case`)
+
+## Publishing
+
+### Prerequisites
+
+- A Visual Studio Marketplace publisher with access to `davidbloomer`
+- A Personal Access Token stored as `VSCE_PAT` in GitHub Actions secrets
+
+### Local packaging
+
+```bash
+npm ci
+npm run package:vsix
+```
+
+### Marketplace publish
+
+- Bump `version` in `package.json`
+- Update `CHANGELOG.md`
+- Push a matching Git tag like `v0.0.5`
+- The GitHub publish workflow will build and publish automatically
 
 ## Requirements
 
@@ -89,6 +113,13 @@ This extension contributes the following settings:
 - Syntax highlighting may conflict with other HTML extensions in some cases
 
 ## Release Notes
+
+### 0.0.4
+
+- Added docstring generator command for Cotton components
+- Added go-to-definition for component tags
+- Added diagnostics for unknown components and component attributes
+- Added component naming style setting (`snake_case` / `kebab-case`)
 
 ### 0.0.1
 

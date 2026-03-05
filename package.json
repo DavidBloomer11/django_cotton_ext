@@ -4,10 +4,23 @@
   "description": "VS Code extension for Django Cotton - component-based template system for Django",
   "version": "0.0.4",
   "publisher": "davidbloomer",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/davidbloomer/django-cotton-ext"
   },
+  "homepage": "https://github.com/davidbloomer/django-cotton-ext#readme",
+  "bugs": {
+    "url": "https://github.com/davidbloomer/django-cotton-ext/issues"
+  },
+  "keywords": [
+    "django",
+    "cotton",
+    "templates",
+    "html",
+    "syntax-highlighting",
+    "autocomplete"
+  ],
   "engines": {
     "vscode": "^1.105.0"
   },
@@ -48,10 +61,6 @@
       }
     },
     "commands": [
-      {
-        "command": "django-cotton-highlighting.helloWorld",
-        "title": "Hello World"
-      },
       {
         "command": "django-cotton-highlighting.refreshComponents",
         "title": "Django Cotton: Refresh Components"
@@ -104,7 +113,9 @@
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package:vsix": "npm run package && vsce package",
+    "publish:vsce": "npm run package && vsce publish"
   },
   "devDependencies": {
     "@types/vscode": "^1.105.0",
@@ -117,6 +128,7 @@
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
     "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2"
   }
 }

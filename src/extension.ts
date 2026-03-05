@@ -694,11 +694,6 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Docstring template created! Use Tab to navigate between placeholders.');
 	});
 
-	// The hello world command
-	const disposable = vscode.commands.registerCommand('django-cotton-highlighting.helloWorld', () => {
-		vscode.window.showInformationMessage('Hello World from Django Cotton!');
-	});
-
 	// Listen for configuration changes
 	const configWatcher = vscode.workspace.onDidChangeConfiguration(e => {
 		if (e.affectsConfiguration('djangoCotton.templatesPath')) {
@@ -707,7 +702,6 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(
-		disposable,
 		refreshCommand,
 		createDocstringCommand,
 		cottonCompletionProvider,
